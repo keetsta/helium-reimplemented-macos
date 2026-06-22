@@ -32,16 +32,22 @@ submodule_commit_at() {
     git ls-tree "$1" helium-chromium | awk '{print $3}'
 }
 
-last_tag=$(git describe --tags --abbrev=0)
-commit_then=$(submodule_commit_at "$last_tag")
-commit_now=$(submodule_commit_at HEAD)
+last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
 {
   printf 'Changes since last build:\n### helium-macos\n```\n'
-  git log --oneline "$last_tag..HEAD"
-  printf '```\n\n### helium-chromium\n```\n'
-  git -C helium-chromium log --oneline "$commit_then..$commit_now"
+  if [ -n "$last_tag" ]; then
+    git log --oneline "$last_tag..HEAD"
+    commit_then=$(submodule_commit_at "$last_tag")
+    commit_now=$(submodule_commit_at HEAD)
+    printf '```\n\n### helium-chromium\n```\n'
+    git -C helium-chromium log --oneline "$commit_then..$commit_now"
+  else
+    git log --oneline
+    printf '```\n\n### helium-chromium\n```\n'
+    git -C helium-chromium log --oneline -20
+  fi
   printf '```\n\n---\n\n'
   printf 'See [this GitHub Actions Run](%s) for the [Workflow file](%s/workflow) used '
-  printf 'as well as the build logs and artifacts\n' "$_gh_run_href" "$_gh_run_href" 
+  printf 'as well as the build logs and artifacts\n' "$_gh_run_href" "$_gh_run_href"
 } | tee -a ./github_release_note.md
