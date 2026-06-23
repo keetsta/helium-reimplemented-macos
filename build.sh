@@ -38,6 +38,23 @@ mkdir -p "$_src_dir/out/Default"
 python3 "$_main_repo/utils/prune_binaries.py" "$_src_dir" "$_main_repo/pruning.list"
 "$_root_dir/retrieve_and_unpack_resource.sh" -t
 
+# The helium-onboarding release ships its i18n strings as a generated file:
+# src/lib/strings.ts is produced from util/strings.ts.in + helium_onboarding_strings.grdp
+# by util/generate-i18n.mts (the package.json "prebuild" step). Several patches modify
+# src/lib/strings.ts directly, so it must exist *before* patches are applied — otherwise
+# `patch` can't find the file and blocks on an interactive "File to patch:" prompt.
+# Prefer the bundled host node (already fetched by retrieve -t) matching the host
+# arch, regardless of which subdir it landed in, else fall back to node on PATH.
+case "$(uname -m)" in
+  arm64) _node_dir="node-darwin-arm64" ;;
+  *)     _node_dir="node-darwin-x64" ;;
+esac
+_node=node
+for _cand in "$_src_dir"/third_party/node/*/"$_node_dir"/bin/node; do
+  [ -x "$_cand" ] && { _node="$_cand"; break; }
+done
+( cd "$_src_dir/components/helium_onboarding" && "$_node" ./util/generate-i18n.mts )
+
 # Apply patches, substitutions and translations
 python3 "$_main_repo/utils/patches.py" apply "$_src_dir" "$_main_repo/patches" "$_root_dir/patches"
 python3 "$_main_repo/utils/domain_substitution.py" apply -r "$_main_repo/domain_regex.list" -f "$_main_repo/domain_substitution.list" "$_src_dir"
