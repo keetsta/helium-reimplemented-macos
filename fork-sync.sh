@@ -111,8 +111,13 @@ while IFS=$'\t' read -r repo st path; do
   case "$path" in
     patches/*.patch) patch_lines+=("$repo	$st	$path") ;;
     patches/series)  risky+=("$path (series changed — order/add/remove)") ;;
-    *.md|*/CLAUDE.md|.github/*|*.sh|.gitignore|.gitmodules|LICENSE*|*.bat|*.ps1)
-        : ;;  # harmless to the patched tree
+    # The submodule gitlink flips on every core bump; the actual core changes
+    # are diffed separately (OLD_CORE..NEW_CORE), so it is not itself risky.
+    helium-chromium) : ;;
+    # Things that never affect the patched build/src tree: docs, CI, the helper
+    # scripts themselves (run by fork-build, not applied to the tree), tests.
+    *.md|*/CLAUDE.md|docs/*|.github/*|.vscode/*|*.sh|fork-build|fork-rebuild|.gitignore|.gitmodules|.gitattributes|LICENSE*|*.bat|*.ps1|tests/*|*/tests/*)
+        : ;;
     *)  risky+=("$path") ;;
   esac
 done < "$changes"
