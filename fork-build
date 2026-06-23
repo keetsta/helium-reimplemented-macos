@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# fork-build — full, clean RELEASE build of the Helium fork for macOS.
+#
+# Produces a signed-or-unsigned Helium .dmg in:
+#   helium-reimplemented-macos/build/
+#
+# Everything stays inside the CHROMIUM/ folder:
+#   - host tools (python venv, ninja, greadlink) come from CHROMIUM/toolchain
+#   - Chromium source, its toolchain (clang/rust/node), and all downloads
+#     land in helium-reimplemented-macos/build/
+#
+# This is the heavy one: it downloads ~full Chromium source and compiles it
+# with PGO. Expect several hours and well over 100 GB of disk usage.
+#
+# Usage:
+#   ./fork-build            # build for the host architecture (arm64 here)
+#   ./fork-build x86_64     # cross-build for Intel
+#
+set -euo pipefail
+
+_self="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# Scripts live inside the macOS repo; the contained toolchain is its sibling
+# under CHROMIUM/ (one level up).
+source "$_self/../toolchain/env.fork.sh"
+
+ARCH="${1:-}"
+
+echo "==> fork-build: full clean release build"
+echo "    root : $FORK_ROOT"
+echo "    repo : $FORK_REPO"
+echo "    python: $(command -v python3)  ($(python3 --version 2>&1))"
+echo "    ninja : $(command -v ninja)  ($(ninja --version))"
+echo "    arch  : ${ARCH:-host ($(uname -m))}"
+echo
+
+cd "$FORK_REPO"
+
+# Log everything to build/logs/ (inside the folder) while still showing it live.
+_log_dir="$FORK_REPO/build/logs"
+mkdir -p "$_log_dir"
+_log_file="$_log_dir/fork-build-$(date +%Y%m%d-%H%M%S).log"
+ln -sf "$(basename "$_log_file")" "$_log_dir/latest.log"
+echo "    log   : $_log_file"
+echo
+
+# build.sh wipes out/, re-clones/downloads the Chromium source, applies all
+# patches, sets release flags (PGO), compiles, then signs & packages a .dmg.
+# pipefail (set above) makes the build's exit status survive the tee pipe.
+./build.sh ${ARCH:+"$ARCH"} 2>&1 | tee "$_log_file"

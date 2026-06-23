@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#
+# fork-rebuild — fast incremental rebuild of the Helium fork for macOS.
+#
+# Reuses the Chromium source tree, applied patches, and GN configuration that
+# `fork-build` already prepared in helium-reimplemented-macos/build/src.
+# It just recompiles the changed targets with ninja and repackages the .dmg.
+#
+# Use this after `fork-build` has succeeded once and you've changed patches /
+# resources / source and want a quick turnaround. It does NOT re-download
+# Chromium and does NOT wipe out/.
+#
+# If the prepared tree doesn't exist yet, it tells you to run ./fork-build.
+#
+# Everything stays inside the CHROMIUM/ folder (same contained toolchain).
+#
+# Usage:
+#   ./fork-rebuild
+#
+set -euo pipefail
+
+_self="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# Scripts live inside the macOS repo; the contained toolchain is its sibling
+# under CHROMIUM/ (one level up).
+source "$_self/../toolchain/env.fork.sh"
+
+SRC="$FORK_REPO/build/src"
+OUT="$SRC/out/Default"
+
+if [[ ! -d "$SRC" || ! -f "$OUT/args.gn" ]]; then
+  echo "error: no prepared build tree found at:" >&2
+  echo "    $OUT/args.gn" >&2
+  echo "Run ./fork-build first to set up and build the source tree." >&2
+  exit 1
+fi
+
+echo "==> fork-rebuild: incremental compile + repackage"
+echo "    src   : $SRC"
+echo "    ninja : $(command -v ninja)  ($(ninja --version))"
+
+# Log everything to build/logs/ (inside the folder) while still showing it live.
+_log_dir="$FORK_REPO/build/logs"
+mkdir -p "$_log_dir"
+_log_file="$_log_dir/fork-rebuild-$(date +%Y%m%d-%H%M%S).log"
+ln -sf "$(basename "$_log_file")" "$_log_dir/latest.log"
+echo "    log   : $_log_file"
+echo
+
+# Run the incremental build + repackage in a subshell teed to the log.
+# pipefail (set above) makes a failing step's status survive the tee pipe.
+{
+  cd "$SRC"
+
+  # Regenerate build files in case GN args / BUILD.gn changed, then compile.
+  ./out/Default/gn gen out/Default --fail-on-unused-args
+  ninja -C out/Default chrome chromedriver
+
+  # Re-sign and repackage the .dmg (uses MACOS_CERTIFICATE_NAME if set).
+  "$FORK_REPO/sign_and_package_app.sh"
+} 2>&1 | tee "$_log_file"
+
+echo
+echo "==> done. Look for the .dmg in: $FORK_REPO/build/"
