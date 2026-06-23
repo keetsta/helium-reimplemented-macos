@@ -17,7 +17,7 @@ if [[ -f "$_root_dir/build_finished_$_target_cpu.log" ]] ; then
 
   cd "$_src_dir"
 
-  xattr -cs out/Default/Helium.app
+  xattr -cs "out/Default/Helium Reimplemented.app"
 
   if ! [ -z "${MACOS_CERTIFICATE_NAME-}" ]; then
     # Prepar the certificate for app signing

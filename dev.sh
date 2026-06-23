@@ -178,7 +178,7 @@ ___helium_build() {
 }
 
 ___helium_run() {
-    "$_out_dir/Helium.app/Contents/MacOS/Helium" \
+    "$_out_dir/Helium Reimplemented.app/Contents/MacOS/Helium Reimplemented" \
     --user-data-dir="$HOME/Library/Application Support/net.imput.helium.dev" \
     --enable-ui-devtools \
     --use-mock-keychain \
