@@ -25,7 +25,7 @@ def get_asset_url(release, arch):
   for asset in release['assets']:
       if asset['name'].endswith(f'_{arch}-macos.dmg'):
         return asset['browser_download_url']
-  assert(False)
+  return None
 
 
 def get_historic_dmg_urls():
@@ -43,6 +43,9 @@ def get_historic_dmg_urls():
     version = release['tag_name'].split('-')[0]
     x86_url = get_asset_url(release, 'x86_64')
     arm_url = get_asset_url(release, 'arm64')
+    if x86_url is None or arm_url is None:
+      print(f'skipping {release["tag_name"]}: no matching dmg assets')
+      continue
     urls[version] = (arm_url, x86_url)
 
   return urls
